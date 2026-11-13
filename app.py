@@ -609,9 +609,13 @@ if uploaded_pdf is not None:
                     )
 
                 if not relevant_chunks:
-                    answer = (
-                        "I couldn't find sufficiently relevant "
-                        "information in this PDF to answer confidently."
+                    answer = RAGResponse(
+                        supported=False,
+                        answer=(
+                            "I couldn't find sufficiently relevant "
+                            "information in this PDF to answer confidently."
+                        ),
+                        source_pages=[]
                     )
                 else:
                     with st.spinner("Generating your answer..."):
@@ -660,7 +664,18 @@ if uploaded_pdf is not None:
                 answer = f"Sorry, I couldn't process your question: {error}"
                 st.error(answer)
 
+        if isinstance(answer, RAGResponse):
+            message_content = answer.answer
+
+            if answer.supported and answer.source_pages:
+                message_content += (
+                    "\n\n**Sources:** PDF pages "
+                    + ", ".join(map(str, answer.source_pages))
+                )
+        else:
+            message_content = str(answer)
+
         st.session_state["messages"].append({
             "role": "assistant",
-            "content": answer
+            "content": message_content
         })
