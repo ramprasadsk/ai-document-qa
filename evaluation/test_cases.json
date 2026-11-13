@@ -1,0 +1,163 @@
+
+[
+  {
+    "id": "Q01",
+    "question": "What does each letter in CAN SLIM stand for?",
+    "expected_answer": "C Current quarterly earnings, A Annual earnings increases, N New products management or highs, S Supply and demand, L Leader or laggard, I Institutional sponsorship, M Market direction",
+    "relevant_pages": [11, 48],
+    "supported": true,
+    "verified": true
+  },
+  {
+    "id": "Q02",
+    "question": "What is the importance of current quarterly earnings per share?",
+    "expected_answer": "Current quarterly earnings growth is a major factor in selecting winning stocks, with strong percentage increases indicating potential growth",
+    "relevant_pages": [11, 15],
+    "supported": true,
+    "verified": true
+  },
+  {
+    "id": "Q03",
+    "question": "What are the seven characteristics of successful stocks according to William O'Neil?",
+    "expected_answer": "The seven characteristics are represented by CAN SLIM: current earnings, annual earnings, new developments, supply and demand, leadership, institutional sponsorship, and market direction",
+    "relevant_pages": [48],
+    "supported": true,
+    "verified": true
+  },
+  {
+    "id": "Q04",
+    "question": "What does the C in CAN SLIM represent?",
+    "expected_answer": "Current quarterly earnings per share",
+    "relevant_pages": [11, 48],
+    "supported": true,
+    "verified": true
+  },
+  {
+    "id": "Q05",
+    "question": "What does institutional sponsorship mean in CAN SLIM?",
+    "expected_answer": "Buy stocks with at least a few institutional sponsors having better-than-average recent performance records",
+    "relevant_pages": [48],
+    "supported": true,
+    "verified": true
+  },
+  {
+    "id": "Q06",
+    "question": "Why is the general market direction important?",
+    "expected_answer": "General market direction influences whether stock investments succeed, and investors should interpret market indexes and leading stocks",
+    "relevant_pages": [48],
+    "supported": true,
+    "verified": true
+  },
+  {
+    "id": "Q07",
+    "question": "What does supply and demand mean in the CAN SLIM system?",
+    "expected_answer": "Prefer a small or reasonable number of outstanding shares and look for volume increases when a stock moves upward",
+    "relevant_pages": [48],
+    "supported": true,
+    "verified": true
+  },
+  {
+    "id": "Q08",
+    "question": "What is the importance of annual earnings growth?",
+    "expected_answer": "Annual earnings per share should show meaningful growth over the previous five years",
+    "relevant_pages": [48],
+    "supported": true,
+    "verified": true
+  },
+  {
+    "id": "Q09",
+    "question": "What does the author recommend regarding market leaders and laggards?",
+    "expected_answer": "Buy market leaders and avoid laggards",
+    "relevant_pages": [48],
+    "supported": true,
+    "verified": true
+  },
+  {
+    "id": "Q10",
+    "question": "According to the N in CAN SLIM, what new developments and stock-price behavior should investors look for?",
+    "expected_answer": "New products, new management, significant industry changes, and stocks initially making new price highs",
+    "relevant_pages": [48],
+    "supported": true,
+    "verified": true
+  },
+  {
+    "id": "Q11",
+    "question": "How much should current quarterly earnings increase according to the CAN SLIM formula?",
+    "expected_answer": "At least 20 percent",
+    "relevant_pages": [48],
+    "supported": true,
+    "verified": true
+  },
+  {
+    "id": "Q12",
+    "question": "How does the author recommend interpreting the overall market?",
+    "expected_answer": "Study daily general market indexes, price and volume changes, and the behavior of individual market leaders",
+    "relevant_pages": [48],
+    "supported": true,
+    "verified": true
+  },
+  {
+    "id": "Q13",
+    "question": "What does the author say about buying stocks making new price highs?",
+    "expected_answer": "Buy stocks as they initially make new highs in price",
+    "relevant_pages": [48],
+    "supported": true,
+    "verified": true
+  },
+  {
+    "id": "Q14",
+    "question": "Why should investors avoid buying stocks merely because they are cheap?",
+    "expected_answer": "Cheap stocks are usually cheap for a good reason",
+    "relevant_pages": [48],
+    "supported": true,
+    "verified": true
+  },
+  {
+    "id": "Q15",
+    "question": "What is the author's advice about investing in mutual funds during a recession?",
+    "expected_answer": "The author recommends adding to a diversified mutual fund when its price has declined approximately 25% to 30% during an economic recession. He suggests that borrowing a little money to purchase additional shares might be considered, and expresses the expectation that shares could rise sharply within two to three years if the investor remains patient.",
+    "relevant_pages": [75],
+    "supported": true,
+    "verified": true
+  },
+  {
+    "id": "Q16",
+    "question": "Where is Hidden Leaf Village located?",
+    "expected_answer": "",
+    "relevant_pages": [],
+    "supported": false,
+    "verified": true
+  },
+  {
+    "id": "Q17",
+    "question": "How do I prepare a chocolate cake?",
+    "expected_answer": "",
+    "relevant_pages": [],
+    "supported": false,
+    "verified": true
+  },
+  {
+    "id": "Q18",
+    "question": "Who won the 2022 FIFA World Cup?",
+    "expected_answer": "",
+    "relevant_pages": [],
+    "supported": false,
+    "verified": true
+  },
+  {
+    "id": "Q19",
+    "question": "How does photosynthesis work in plants?",
+    "expected_answer": "",
+    "relevant_pages": [],
+    "supported": false,
+    "verified": true
+  },
+  {
+    "id": "Q20",
+    "question": "What are the features of Python 3.12?",
+    "expected_answer": "",
+    "relevant_pages": [],
+    "supported": false,
+    "verified": true
+  }
+]

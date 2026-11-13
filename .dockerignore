@@ -1,0 +1,17 @@
+
+.venv/
+.git/
+.env
+.env.*
+__pycache__/
+*.pyc
+.pytest_cache/
+.streamlit/secrets.toml
+
+chroma_db/
+evaluation/reports/
+requirements-local.txt
+
+documents/
+chunks.json
+embedded_chunks.json
