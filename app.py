@@ -19,14 +19,15 @@ api_key = os.getenv("GEMINI_API_KEY")
 
 if not api_key:
     try:
-        api_key = st.secrets["GEMINI_API_KEY"]
-    except (KeyError, FileNotFoundError):
+        api_key = st.secrets.get("GEMINI_API_KEY")
+    except FileNotFoundError:
         pass
 
-client = genai.Client(api_key=api_key)
+if not api_key:
+    st.error("GEMINI_API_KEY is missing. Check your Streamlit Cloud secrets.")
+    st.stop()
 
-ANSWER_MODEL = "gemini-3.5-flash-lite"
-LOCAL_EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
+client = genai.Client(api_key=api_key)
 
 TOP_K = 5
 SIMILARITY_THRESHOLD = 0.35
