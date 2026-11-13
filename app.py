@@ -29,6 +29,9 @@ if not api_key:
 
 client = genai.Client(api_key=api_key)
 
+ANSWER_MODEL = "gemini-3.5-flash-lite"
+LOCAL_EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
+
 TOP_K = 5
 SIMILARITY_THRESHOLD = 0.35
 CHUNK_SIZE = 1000
