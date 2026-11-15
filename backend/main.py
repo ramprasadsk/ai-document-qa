@@ -11,6 +11,7 @@ from backend.rag_service import (
     RAGResponse,
 )
 from fastapi import FastAPI, File, HTTPException, UploadFile
+from google.genai.errors import ServerError, ClientError
 
 app = FastAPI(
     title="AI Document Q&A API",
@@ -124,7 +125,24 @@ def ask_question(request: QuestionRequest):
         )
 
     # Generate a grounded answer using Gemini.
-    return generate_answer(
-        request.question,
-        relevant_chunks
-    )
+    try:
+        return generate_answer(
+            request.question,
+            relevant_chunks
+        )
+
+    except ServerError as exc:
+        if exc.code == 503:
+            raise HTTPException(
+                status_code=503,
+                detail="The AI model is temporarily busy. Please try again shortly."
+            ) from exc
+        raise
+
+    except ClientError as exc:
+        if exc.code == 429:
+            raise HTTPException(
+                status_code=429,
+                detail="The AI service rate limit has been reached. Please try again later."
+            ) from exc
+        raise
