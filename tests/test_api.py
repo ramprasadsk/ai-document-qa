@@ -101,3 +101,20 @@ def test_successful_question_answering():
         "What is CAN SLIM?",
         fake_chunks
     )
+
+def test_question_rate_limit():
+    from fastapi.testclient import TestClient
+
+    with TestClient(app) as test_client:
+        responses = [
+            test_client.post(
+                "/questions/ask",
+                json={
+                    "document_id": "nonexistent_document",
+                    "question": "Test question"
+                }
+            )
+            for _ in range(6)
+        ]
+
+    assert responses[-1].status_code == 429

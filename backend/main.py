@@ -10,13 +10,25 @@ from backend.rag_service import (
     generate_answer,
     RAGResponse,
 )
-from fastapi import FastAPI, File, HTTPException, UploadFile
 from google.genai.errors import ServerError, ClientError
+from fastapi import FastAPI, File, HTTPException, UploadFile, Request
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
 app = FastAPI(
     title="AI Document Q&A API",
     description="Backend API for our PDF-based RAG application",
     version="1.0.0"
+)
+
+limiter = Limiter(key_func=get_remote_address)
+
+app.state.limiter = limiter
+
+app.add_exception_handler(
+    RateLimitExceeded,
+    _rate_limit_exceeded_handler
 )
 
 class QuestionRequest(BaseModel):
@@ -31,7 +43,11 @@ def health_check():
     }
 
 @app.post("/documents/upload")
-async def upload_document(file: UploadFile = File(...)):
+@limiter.limit("2/minute")
+async def upload_document(
+    request: Request,
+    file: UploadFile = File(...)
+):
     if file.content_type != "application/pdf":
         raise HTTPException(
             status_code=400,
@@ -96,11 +112,14 @@ async def upload_document(file: UploadFile = File(...)):
 
 
 @app.post("/questions/ask", response_model=RAGResponse)
-def ask_question(request: QuestionRequest):
-
+@limiter.limit("5/minute")
+def ask_question(
+    request: Request,
+    question_data: QuestionRequest
+):
     # Verify that the requested document exists.
     existing = collection.get(
-        where={"pdf_id": request.document_id},
+        where={"pdf_id": question_data.document_id},
         limit=1
     )
 
@@ -112,8 +131,8 @@ def ask_question(request: QuestionRequest):
 
     # Retrieve relevant evidence from the PDF.
     relevant_chunks, _ = retrieve_chunks(
-        request.question,
-        request.document_id
+        question_data.question,
+        question_data.document_id
     )
 
     # Reject questions without sufficient retrieved evidence.
@@ -127,7 +146,7 @@ def ask_question(request: QuestionRequest):
     # Generate a grounded answer using Gemini.
     try:
         return generate_answer(
-            request.question,
+            question_data.question,
             relevant_chunks
         )
 

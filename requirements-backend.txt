@@ -12,3 +12,4 @@ requests
 uvicorn
 pytest
 httpx
+slowapi
