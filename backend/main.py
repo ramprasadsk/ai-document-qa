@@ -16,6 +16,12 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
+import os
+import secrets
+
+from fastapi import Depends, Security
+from fastapi.security import APIKeyHeader
+
 app = FastAPI(
     title="AI Document Q&A API",
     description="Backend API for our PDF-based RAG application",
@@ -35,6 +41,32 @@ class QuestionRequest(BaseModel):
     document_id: str = Field(min_length=1)
     question: str = Field(min_length=1)
 
+BACKEND_API_KEY = os.getenv("BACKEND_API_KEY")
+
+api_key_header = APIKeyHeader(
+    name="X-API-Key",
+    auto_error=False
+)
+
+
+def verify_api_key(
+    provided_key: str | None = Security(api_key_header)
+):
+    if not BACKEND_API_KEY:
+        raise HTTPException(
+            status_code=503,
+            detail="Backend API authentication is not configured."
+        )
+
+    if not provided_key or not secrets.compare_digest(
+        provided_key,
+        BACKEND_API_KEY
+    ):
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid or missing API key."
+        )
+
 @app.get("/health")
 def health_check():
     return {
@@ -42,7 +74,10 @@ def health_check():
         "service": "ai-document-qa"
     }
 
-@app.post("/documents/upload")
+@app.post(
+    "/documents/upload",
+    dependencies=[Depends(verify_api_key)]
+)
 @limiter.limit("2/minute")
 async def upload_document(
     request: Request,
@@ -111,7 +146,11 @@ async def upload_document(
     }
 
 
-@app.post("/questions/ask", response_model=RAGResponse)
+@app.post(
+    "/questions/ask",
+    response_model=RAGResponse,
+    dependencies=[Depends(verify_api_key)]
+)
 @limiter.limit("5/minute")
 def ask_question(
     request: Request,

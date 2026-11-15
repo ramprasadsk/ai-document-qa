@@ -12,6 +12,15 @@ BACKEND_URL = st.secrets.get(
     os.getenv("BACKEND_URL", "http://127.0.0.1:8000")
 )
 
+BACKEND_API_KEY = st.secrets.get(
+    "BACKEND_API_KEY",
+    os.getenv("BACKEND_API_KEY", "")
+)
+
+API_HEADERS = {
+    "X-API-Key": BACKEND_API_KEY
+}
+
 st.set_page_config(
     page_title="AI Document Q&A",
     page_icon="📚",
@@ -36,6 +45,7 @@ def upload_pdf_to_backend(uploaded_file):
     response = requests.post(
         f"{BACKEND_URL}/documents/upload",
         files=files,
+        headers=API_HEADERS,
         timeout=300
     )
 
@@ -53,6 +63,7 @@ def ask_backend(question, document_id):
             "document_id": document_id,
             "question": question
         },
+        headers=API_HEADERS,
         timeout=120
     )
 

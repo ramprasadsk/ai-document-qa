@@ -1,12 +1,19 @@
 
 from fastapi.testclient import TestClient
+import os
+
+os.environ["BACKEND_API_KEY"] = "local-test-key"
 from backend.main import app
 
 from unittest.mock import patch
 from backend.rag_service import RAGResponse
+from fastapi.testclient import TestClient
+from backend.main import app
 
-
-client = TestClient(app)
+client = TestClient(
+    app,
+    headers={"X-API-Key": "local-test-key"}
+)
 
 
 def test_health_endpoint():
@@ -105,7 +112,10 @@ def test_successful_question_answering():
 def test_question_rate_limit():
     from fastapi.testclient import TestClient
 
-    with TestClient(app) as test_client:
+    with TestClient(
+        app,
+        headers={"X-API-Key": "local-test-key"}
+    ) as test_client:
         responses = [
             test_client.post(
                 "/questions/ask",
@@ -118,3 +128,36 @@ def test_question_rate_limit():
         ]
 
     assert responses[-1].status_code == 429
+
+def test_missing_api_key():
+    from fastapi.testclient import TestClient
+
+    with TestClient(app) as test_client:
+        response = test_client.post(
+            "/questions/ask",
+            json={
+                "document_id": "nonexistent_document",
+                "question": "Test question"
+            }
+        )
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Invalid or missing API key."
+
+def test_invalid_api_key():
+    from fastapi.testclient import TestClient
+
+    with TestClient(
+        app,
+        headers={"X-API-Key": "wrong-api-key"}
+    ) as test_client:
+        response = test_client.post(
+            "/questions/ask",
+            json={
+                "document_id": "nonexistent_document",
+                "question": "Test question"
+            }
+        )
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Invalid or missing API key."
