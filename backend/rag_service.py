@@ -124,7 +124,7 @@ def embed_chunks(chunks):
 
     return embedded_chunks
 
-def store_chunks_in_chroma(pdf_id, embedded_chunks):
+def store_chunks_in_chroma(pdf_id, embedded_chunks, session_hash):
     """Store PDF chunks and their embeddings in ChromaDB."""
 
     ids = []
@@ -139,7 +139,8 @@ def store_chunks_in_chroma(pdf_id, embedded_chunks):
 
         metadatas.append({
             "pdf_id": pdf_id,
-            "page": chunk["page"]
+            "page": chunk["page"],
+            "session_hash": session_hash
         })
 
     for start in range(0, len(ids), 100):

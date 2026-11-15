@@ -11,7 +11,7 @@ from backend.rag_service import (
     RAGResponse,
 )
 from google.genai.errors import ServerError, ClientError
-from fastapi import FastAPI, File, HTTPException, UploadFile, Request
+from fastapi import FastAPI, File, HTTPException, UploadFile, Request, Depends, Security, Header
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
@@ -67,6 +67,26 @@ def verify_api_key(
             detail="Invalid or missing API key."
         )
 
+def verify_session_token(
+    session_token: str | None = Header(
+        default=None,
+        alias="X-Session-Token"
+    )
+) -> str:
+    if not session_token:
+        raise HTTPException(
+            status_code=401,
+            detail="Missing session token."
+        )
+
+    if len(session_token) < 32 or len(session_token) > 128:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid session token."
+        )
+
+    return session_token
+
 @app.get("/health")
 def health_check():
     return {
@@ -76,12 +96,16 @@ def health_check():
 
 @app.post(
     "/documents/upload",
-    dependencies=[Depends(verify_api_key)]
+    dependencies=[
+        Depends(verify_api_key),
+        Depends(verify_session_token)
+    ]
 )
 @limiter.limit("2/minute")
 async def upload_document(
     request: Request,
-    file: UploadFile = File(...)
+    file: UploadFile = File(...),
+    session_token: str = Depends(verify_session_token)
 ):
     if file.content_type != "application/pdf":
         raise HTTPException(
@@ -104,15 +128,34 @@ async def upload_document(
             detail="Invalid or empty PDF file."
         )
 
-    document_id = hashlib.sha256(pdf_bytes).hexdigest()
+    pdf_hash = hashlib.sha256(pdf_bytes).hexdigest()
+    session_hash = hashlib.sha256(session_token.encode()).hexdigest()
+
+    document_id = hashlib.sha256(
+        f"{session_hash}:{pdf_hash}".encode()
+    ).hexdigest()
 
     # Check whether this PDF was previously indexed.
     existing = collection.get(
         where={"pdf_id": document_id},
-        limit=1
+        limit=1,
+        include=["metadatas"]
     )
 
     if existing["ids"]:
+        stored_session_hash = existing["metadatas"][0].get(
+            "session_hash"
+        )
+
+        if not stored_session_hash or not secrets.compare_digest(
+            stored_session_hash,
+            session_hash
+        ):
+            raise HTTPException(
+                status_code=403,
+                detail="Access denied to this document."
+            )
+
         return {
             "document_id": document_id,
             "filename": file.filename,
@@ -136,8 +179,11 @@ async def upload_document(
 
     # Generate local embeddings and store in ChromaDB.
     embedded_chunks = embed_chunks(chunks)
-    store_chunks_in_chroma(document_id, embedded_chunks)
-
+    store_chunks_in_chroma(
+        document_id,
+        embedded_chunks,
+        session_hash
+    )
     return {
         "document_id": document_id,
         "filename": file.filename,
@@ -149,23 +195,44 @@ async def upload_document(
 @app.post(
     "/questions/ask",
     response_model=RAGResponse,
-    dependencies=[Depends(verify_api_key)]
+    dependencies=[
+        Depends(verify_api_key),
+        Depends(verify_session_token)
+    ]
 )
 @limiter.limit("5/minute")
 def ask_question(
     request: Request,
-    question_data: QuestionRequest
+    question_data: QuestionRequest,
+    session_token: str = Depends(verify_session_token)
 ):
-    # Verify that the requested document exists.
+    session_hash = hashlib.sha256(
+        session_token.encode()
+    ).hexdigest()
+
     existing = collection.get(
         where={"pdf_id": question_data.document_id},
-        limit=1
+        limit=1,
+        include=["metadatas"]
     )
 
     if not existing["ids"]:
         raise HTTPException(
             status_code=404,
-            detail="Document not found. Upload the PDF first."
+            detail="Document not found."
+        )
+
+    stored_session_hash = existing["metadatas"][0].get(
+        "session_hash"
+    )
+
+    if not stored_session_hash or not secrets.compare_digest(
+        stored_session_hash,
+        session_hash
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="Access denied to this document."
         )
 
     # Retrieve relevant evidence from the PDF.

@@ -2,6 +2,7 @@ import os
 import hashlib
 import requests
 import streamlit as st
+import secrets
 
 from dotenv import load_dotenv
 
@@ -19,6 +20,14 @@ BACKEND_API_KEY = st.secrets.get(
 
 API_HEADERS = {
     "X-API-Key": BACKEND_API_KEY
+}
+
+if "session_token" not in st.session_state:
+    st.session_state["session_token"] = secrets.token_urlsafe(32)
+
+SESSION_HEADERS = {
+    **API_HEADERS,
+    "X-Session-Token": st.session_state["session_token"]
 }
 
 st.set_page_config(
@@ -45,7 +54,7 @@ def upload_pdf_to_backend(uploaded_file):
     response = requests.post(
         f"{BACKEND_URL}/documents/upload",
         files=files,
-        headers=API_HEADERS,
+        headers=SESSION_HEADERS,
         timeout=300
     )
 
@@ -63,7 +72,7 @@ def ask_backend(question, document_id):
             "document_id": document_id,
             "question": question
         },
-        headers=API_HEADERS,
+        headers=SESSION_HEADERS,
         timeout=120
     )
 
@@ -78,12 +87,13 @@ uploaded_pdf = st.file_uploader(
 
 if uploaded_pdf is not None:
     pdf_bytes = uploaded_pdf.getvalue()
-    pdf_id = hashlib.sha256(pdf_bytes).hexdigest()
+    pdf_hash = hashlib.sha256(pdf_bytes).hexdigest()
 
     # Reset the conversation when a different PDF is uploaded.
-    if st.session_state.get("pdf_id") != pdf_id:
-        st.session_state["pdf_id"] = pdf_id
+    if st.session_state.get("pdf_hash") != pdf_hash:
+        st.session_state["pdf_hash"] = pdf_hash
         st.session_state["document_indexed"] = None
+        st.session_state["document_id"] = None
         st.session_state["messages"] = []
 
     
@@ -99,7 +109,9 @@ if uploaded_pdf is not None:
                     f"PDF indexed successfully! "
                     f"{result['chunks']} chunks stored."
                 )
-
+            # Store the session-specific document ID returned by FastAPI
+            st.session_state["document_id"] = result["document_id"]
+            
             st.session_state["document_indexed"] = True
 
         except requests.exceptions.RequestException as error:
@@ -126,7 +138,10 @@ if uploaded_pdf is not None:
         with st.chat_message("assistant"):
             try:
                 with st.spinner("Searching PDF and generating answer..."):
-                    answer = ask_backend(question, pdf_id)
+                    answer = ask_backend(
+                        question,
+                        st.session_state["document_id"]
+                    )
 
                 if answer["supported"]:
                     st.markdown(answer["answer"])
