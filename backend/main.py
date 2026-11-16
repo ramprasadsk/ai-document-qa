@@ -271,3 +271,51 @@ def ask_question(
                 detail="The AI service rate limit has been reached. Please try again later."
             ) from exc
         raise
+
+@app.delete(
+    "/documents/{document_id}",
+    dependencies=[Depends(verify_api_key)]
+)
+@limiter.limit("5/minute")
+def delete_document(
+    request: Request,
+    document_id: str,
+    session_token: str = Depends(verify_session_token)
+):
+    session_hash = hashlib.sha256(
+        session_token.encode()
+    ).hexdigest()
+
+    existing = collection.get(
+        where={"pdf_id": document_id},
+        limit=1,
+        include=["metadatas"]
+    )
+
+    if not existing["ids"]:
+        raise HTTPException(
+            status_code=404,
+            detail="Document not found."
+        )
+
+    stored_session_hash = existing["metadatas"][0].get(
+        "session_hash"
+    )
+
+    if not stored_session_hash or not secrets.compare_digest(
+        stored_session_hash,
+        session_hash
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="Access denied to this document."
+        )
+
+    collection.delete(
+        where={"pdf_id": document_id}
+    )
+
+    return {
+        "status": "deleted",
+        "document_id": document_id
+    }

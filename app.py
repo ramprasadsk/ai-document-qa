@@ -8,15 +8,21 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-BACKEND_URL = st.secrets.get(
+def get_config(key, default=""):
+    try:
+        return st.secrets.get(
+            key,
+            os.getenv(key, default)
+        )
+    except FileNotFoundError:
+        return os.getenv(key, default)
+
+BACKEND_URL = get_config(
     "BACKEND_URL",
-    os.getenv("BACKEND_URL", "http://127.0.0.1:8000")
+    "http://127.0.0.1:8000"
 )
 
-BACKEND_API_KEY = st.secrets.get(
-    "BACKEND_API_KEY",
-    os.getenv("BACKEND_API_KEY", "")
-)
+BACKEND_API_KEY = get_config("BACKEND_API_KEY")
 
 API_HEADERS = {
     "X-API-Key": BACKEND_API_KEY
@@ -39,6 +45,17 @@ st.set_page_config(
 st.title("📚 AI Document Q&A")
 st.write("Upload one PDF and ask questions based on its content.")
 
+def delete_pdf_from_backend(document_id):
+    """Delete the current session's PDF from ChromaDB."""
+
+    response = requests.delete(
+        f"{BACKEND_URL}/documents/{document_id}",
+        headers=SESSION_HEADERS,
+        timeout=60
+    )
+
+    response.raise_for_status()
+    return response.json()
 
 def upload_pdf_to_backend(uploaded_file):
     """Send the uploaded PDF to FastAPI for indexing."""
@@ -80,10 +97,36 @@ def ask_backend(question, document_id):
 
     return response.json()
 
+if "uploader_key" not in st.session_state:
+    st.session_state["uploader_key"] = 0
+
 uploaded_pdf = st.file_uploader(
     "Upload your PDF",
-    type=["pdf"]
+    type=["pdf"],
+    key=f"pdf_uploader_{st.session_state['uploader_key']}"
 )
+
+if st.session_state.get("document_indexed") is True:
+    if st.button("🗑️ Delete Document", type="secondary"):
+        try:
+            with st.spinner("Deleting document..."):
+                delete_pdf_from_backend(
+                    st.session_state["document_id"]
+                )
+
+            st.session_state["document_indexed"] = None
+            st.session_state["document_id"] = None
+            st.session_state["pdf_hash"] = None
+            st.session_state["messages"] = []
+            st.session_state["document_deleted"] = False
+
+            # Reset the uploader so the same PDF can be selected again.
+            st.session_state["uploader_key"] += 1
+
+            st.rerun()
+
+        except requests.exceptions.RequestException as error:
+            st.error(f"Could not delete document: {error}")
 
 if uploaded_pdf is not None:
     pdf_bytes = uploaded_pdf.getvalue()
@@ -95,9 +138,13 @@ if uploaded_pdf is not None:
         st.session_state["document_indexed"] = None
         st.session_state["document_id"] = None
         st.session_state["messages"] = []
+        st.session_state["document_deleted"] = False
 
     
-    if st.session_state.get("document_indexed") is None:
+    if (
+        st.session_state.get("document_indexed") is None
+        and not st.session_state.get("document_deleted", False)
+    ):
         try:
             with st.spinner("Uploading and indexing PDF through FastAPI..."):
                 result = upload_pdf_to_backend(uploaded_pdf)
@@ -111,64 +158,68 @@ if uploaded_pdf is not None:
                 )
             # Store the session-specific document ID returned by FastAPI
             st.session_state["document_id"] = result["document_id"]
-            
+
             st.session_state["document_indexed"] = True
 
         except requests.exceptions.RequestException as error:
             st.error(f"FastAPI backend error: {error}")
             st.stop()
 
+    if st.session_state.get("document_deleted", False):
+        st.info("Document deleted. Upload a different PDF to continue.")
+
+    if st.session_state.get("document_indexed") is True:
     
-    for message in st.session_state.get("messages", []):
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+        for message in st.session_state.get("messages", []):
+            with st.chat_message(message["role"]):
+                st.markdown(message["content"])
 
-    question = st.chat_input("Ask a question about your PDF...")
+        question = st.chat_input("Ask a question about your PDF...")
 
-    if question:
-        st.session_state["messages"].append({
-            "role": "user",
-            "content": question
-        })
+        if question:
+            st.session_state["messages"].append({
+                "role": "user",
+                "content": question
+            })
 
-        with st.chat_message("user"):
-            st.markdown(question)
+            with st.chat_message("user"):
+                st.markdown(question)
 
-        
-        with st.chat_message("assistant"):
-            try:
-                with st.spinner("Searching PDF and generating answer..."):
-                    answer = ask_backend(
-                        question,
-                        st.session_state["document_id"]
-                    )
+            
+            with st.chat_message("assistant"):
+                try:
+                    with st.spinner("Searching PDF and generating answer..."):
+                        answer = ask_backend(
+                            question,
+                            st.session_state["document_id"]
+                        )
 
-                if answer["supported"]:
-                    st.markdown(answer["answer"])
+                    if answer["supported"]:
+                        st.markdown(answer["answer"])
 
-                    if answer["source_pages"]:
-                        st.caption(
-                            "Sources: PDF pages "
+                        if answer["source_pages"]:
+                            st.caption(
+                                "Sources: PDF pages "
+                                + ", ".join(map(str, answer["source_pages"]))
+                            )
+                    else:
+                        st.warning(answer["answer"])
+
+                    message_content = answer["answer"]
+
+                    if answer["supported"] and answer["source_pages"]:
+                        message_content += (
+                            "\n\n**Sources:** PDF pages "
                             + ", ".join(map(str, answer["source_pages"]))
                         )
-                else:
-                    st.warning(answer["answer"])
 
-                message_content = answer["answer"]
-
-                if answer["supported"] and answer["source_pages"]:
-                    message_content += (
-                        "\n\n**Sources:** PDF pages "
-                        + ", ".join(map(str, answer["source_pages"]))
+                except requests.exceptions.RequestException as error:
+                    message_content = (
+                        f"Sorry, the backend could not process your question: {error}"
                     )
+                    st.error(message_content)
 
-            except requests.exceptions.RequestException as error:
-                message_content = (
-                    f"Sorry, the backend could not process your question: {error}"
-                )
-                st.error(message_content)
-
-        st.session_state["messages"].append({
-            "role": "assistant",
-            "content": message_content
-        })
+            st.session_state["messages"].append({
+                "role": "assistant",
+                "content": message_content
+            })

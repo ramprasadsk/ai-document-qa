@@ -302,3 +302,86 @@ def test_same_pdf_has_different_ids_for_different_sessions():
         assert hashlib.sha256(
             user_b_token.encode()
         ).hexdigest() in stored_owners
+
+def test_owner_can_delete_document():
+    import hashlib
+    from unittest.mock import patch
+    from fastapi.testclient import TestClient
+
+    session_token = "owner-session-token-123456789012345"
+
+    session_hash = hashlib.sha256(
+        session_token.encode()
+    ).hexdigest()
+
+    with patch("backend.main.collection.get") as mock_get, \
+         patch("backend.main.collection.delete") as mock_delete:
+
+        mock_get.return_value = {
+            "ids": ["document_123_0"],
+            "metadatas": [
+                {"session_hash": session_hash}
+            ]
+        }
+
+        with TestClient(
+            app,
+            headers={
+                "X-API-Key": "local-test-key",
+                "X-Session-Token": session_token
+            },
+            client=("192.0.2.40", 50000)
+        ) as test_client:
+
+            response = test_client.delete(
+                "/documents/document_123"
+            )
+
+        assert response.status_code == 200
+        assert response.json()["status"] == "deleted"
+
+        mock_delete.assert_called_once_with(
+            where={"pdf_id": "document_123"}
+        )
+
+def test_other_session_cannot_delete_document():
+    import hashlib
+    from unittest.mock import patch
+    from fastapi.testclient import TestClient
+
+    owner_token = "owner-session-token-123456789012345"
+    other_token = "other-session-token-987654321098765"
+
+    owner_hash = hashlib.sha256(
+        owner_token.encode()
+    ).hexdigest()
+
+    with patch("backend.main.collection.get") as mock_get, \
+         patch("backend.main.collection.delete") as mock_delete:
+
+        mock_get.return_value = {
+            "ids": ["document_123_0"],
+            "metadatas": [
+                {"session_hash": owner_hash}
+            ]
+        }
+
+        with TestClient(
+            app,
+            headers={
+                "X-API-Key": "local-test-key",
+                "X-Session-Token": other_token
+            },
+            client=("192.0.2.41", 50000)
+        ) as test_client:
+
+            response = test_client.delete(
+                "/documents/document_123"
+            )
+
+        assert response.status_code == 403
+        assert response.json()["detail"] == (
+            "Access denied to this document."
+        )
+
+        mock_delete.assert_not_called()
