@@ -1,6 +1,7 @@
 import chromadb
 import os
 import re
+import time 
 
 from dotenv import load_dotenv
 from google import genai
@@ -131,7 +132,8 @@ def store_chunks_in_chroma(pdf_id, embedded_chunks, session_hash):
     documents = []
     embeddings = []
     metadatas = []
-
+    expires_at = int(time.time()) + (24 * 60 * 60)
+    
     for index, chunk in enumerate(embedded_chunks):
         ids.append(f"{pdf_id}_{index}")
         documents.append(chunk["text"])
@@ -140,7 +142,8 @@ def store_chunks_in_chroma(pdf_id, embedded_chunks, session_hash):
         metadatas.append({
             "pdf_id": pdf_id,
             "page": chunk["page"],
-            "session_hash": session_hash
+            "session_hash": session_hash,
+            "expires_at": expires_at
         })
 
     for start in range(0, len(ids), 100):

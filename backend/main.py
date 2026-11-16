@@ -16,6 +16,7 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
+import time
 import os
 import secrets
 
@@ -94,6 +95,19 @@ def health_check():
         "service": "ai-document-qa"
     }
 
+def cleanup_expired_documents():
+    """Remove expired document chunks from ChromaDB."""
+
+    now = int(time.time())
+
+    expired = collection.get(
+        where={"expires_at": {"$lt": now}},
+        include=[]
+    )
+
+    if expired["ids"]:
+        collection.delete(ids=expired["ids"])
+
 @app.post(
     "/documents/upload",
     dependencies=[
@@ -107,6 +121,7 @@ async def upload_document(
     file: UploadFile = File(...),
     session_token: str = Depends(verify_session_token)
 ):
+    cleanup_expired_documents()
     if file.content_type != "application/pdf":
         raise HTTPException(
             status_code=400,
@@ -206,6 +221,7 @@ def ask_question(
     question_data: QuestionRequest,
     session_token: str = Depends(verify_session_token)
 ):
+    cleanup_expired_documents()
     session_hash = hashlib.sha256(
         session_token.encode()
     ).hexdigest()

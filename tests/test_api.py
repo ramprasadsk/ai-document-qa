@@ -385,3 +385,69 @@ def test_other_session_cannot_delete_document():
         )
 
         mock_delete.assert_not_called()
+
+def test_cleanup_expired_documents():
+    from unittest.mock import patch
+    from backend.main import cleanup_expired_documents
+
+    with patch("backend.main.time.time", return_value=200000):
+
+        with patch("backend.main.collection.get") as mock_get, \
+             patch("backend.main.collection.delete") as mock_delete:
+
+            mock_get.return_value = {
+                "ids": ["expired_chunk_1", "expired_chunk_2"]
+            }
+
+            cleanup_expired_documents()
+
+            mock_get.assert_called_once_with(
+                where={"expires_at": {"$lt": 200000}},
+                include=[]
+            )
+
+            mock_delete.assert_called_once_with(
+                ids=["expired_chunk_1", "expired_chunk_2"]
+            )
+
+def test_cleanup_when_nothing_expired():
+    from unittest.mock import patch
+    from backend.main import cleanup_expired_documents
+
+    with patch("backend.main.collection.get") as mock_get, \
+         patch("backend.main.collection.delete") as mock_delete:
+
+        mock_get.return_value = {"ids": []}
+
+        cleanup_expired_documents()
+
+        mock_delete.assert_not_called()
+
+def test_new_document_gets_expiration_timestamp():
+    from unittest.mock import patch
+    from backend.rag_service import store_chunks_in_chroma
+
+    chunks = [
+        {
+            "page": 1,
+            "text": "Sample PDF content",
+            "embedding": [0.1] * 384
+        }
+    ]
+
+    with patch("backend.rag_service.time.time", return_value=100000):
+        with patch("backend.rag_service.collection.upsert") as mock_upsert:
+
+            store_chunks_in_chroma(
+                "test_document",
+                chunks,
+                "test_session_hash"
+            )
+
+            metadata = mock_upsert.call_args.kwargs["metadatas"][0]
+
+            assert metadata["expires_at"] == 186400
+            assert metadata["pdf_id"] == "test_document"
+            assert metadata["session_hash"] == "test_session_hash"
+
+            mock_upsert.assert_called_once()
